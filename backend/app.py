@@ -2,17 +2,18 @@ import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
-from openai import OpenAI
+import google.generativeai as genai
 
-# Load .env file
+# Load environment variables
 load_dotenv()
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Initialize Flask
+# Initialize Flask app
 app = Flask(__name__)
 CORS(app)
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Load Gemini model
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -23,43 +24,43 @@ def generate():
         return jsonify({"error": "Prompt is required"}), 400
 
     try:
-        # Use latest SDK format
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Or "gpt-3.5-turbo"
-            messages=[
-                {"role": "system", "content": (
-                    "You are an expert educator and Manim animator. "
-                    "Given a teaching prompt, return two things:\n"
-                    "1. A valid Python Manim scene as plain code (no markdown).\n"
-                    "2. A short narration script that matches the animation.\n\n"
-                    "Format:\n"
-                    "[BEGIN CODE]\n<code>\n[END CODE]\n"
-                    "[BEGIN NARRATION]\n<text>\n[END NARRATION]"
-                )},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
+        system_instruction = (
+            "You are an expert educator and Manim animator. "
+            "Given a student's text prompt, return three things:\n"
+            "1. A valid Manim Python scene as raw code (no markdown, no explanation).\n"
+            "2. A short natural-sounding narration to describe the animation.\n"
+            "3. A plain language explanation suitable for chatbot conversation.\n\n"
+            "Format:\n"
+            "[BEGIN CODE]\n<code>\n[END CODE]\n"
+            "[BEGIN NARRATION]\n<text>\n[END NARRATION]\n"
+            "[BEGIN EXPLANATION]\n<text>\n[END EXPLANATION]"
         )
 
-        # Extract text
-        full_reply = response.choices[0].message.content
+        full_prompt = f"{system_instruction}\n\nUser prompt: {prompt}"
+        response = model.generate_content(full_prompt)
+        content = response.text
 
-        # Parse code and narration
-        code = narration = None
-        if "[BEGIN CODE]" in full_reply and "[END CODE]" in full_reply:
-            code = full_reply.split("[BEGIN CODE]")[1].split("[END CODE]")[0].strip()
+        # Extract code, narration, and explanation
+        code = narration = explanation = None
 
-        if "[BEGIN NARRATION]" in full_reply and "[END NARRATION]" in full_reply:
-            narration = full_reply.split("[BEGIN NARRATION]")[1].split("[END NARRATION]")[0].strip()
+        if "[BEGIN CODE]" in content and "[END CODE]" in content:
+            code = content.split("[BEGIN CODE]")[1].split("[END CODE]")[0].strip()
+
+        if "[BEGIN NARRATION]" in content and "[END NARRATION]" in content:
+            narration = content.split("[BEGIN NARRATION]")[1].split("[END NARRATION]")[0].strip()
+
+        if "[BEGIN EXPLANATION]" in content and "[END EXPLANATION]" in content:
+            explanation = content.split("[BEGIN EXPLANATION]")[1].split("[END EXPLANATION]")[0].strip()
 
         return jsonify({
             "code": code,
-            "narration": narration
+            "narration": narration,
+            "explanation": explanation
         })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
+# Run the app
 if __name__ == '__main__':
     app.run(debug=True)
