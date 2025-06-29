@@ -16,12 +16,18 @@ function App() {
     setPrompt("");
     setLoading(true);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds timeout
+
     try {
       const res = await fetch("http://localhost:5000/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId); // clear timeout if completed in time
 
       const data = await res.json();
 
@@ -37,14 +43,14 @@ function App() {
           { type: "bot", text: data.explanation },
         ]);
         setOutput({
-          code: data.code,
-          narration: data.narration,
+          code: data.code || "No code returned.",
+          narration: data.narration || "No narration returned.",
         });
       }
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { type: "bot", text: "❌ Error contacting backend." },
+        { type: "bot", text: "❌ Error contacting backend. Possibly timed out." },
       ]);
     }
 
@@ -95,10 +101,23 @@ function App() {
 
             <h3>🔊 Narration:</h3>
             <p>{output.narration}</p>
+
+            <h3>📹 Animation:</h3>
+            {output.videoUrl ? (
+              <video
+                controls
+                width="100%"
+                style={{ maxHeight: "400px", marginTop: "10px" }}
+                src={output.videoUrl}
+              />
+            ) : (
+              <p>No video generated.</p>
+            )}
           </>
         ) : (
-          <p>No animation generated yet.</p>
-        )}
+          <p style={{ marginTop: "1rem" }}>AI animation and narration will appear here.</p>
+        )} 
+
       </div>
     </div>
   );

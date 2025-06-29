@@ -19,3 +19,7 @@ Thumbs.db
 # React
 frontend/build/
 frontend/.next/
+
+backend/static
+backend/media
+backend/temp_scene.py
