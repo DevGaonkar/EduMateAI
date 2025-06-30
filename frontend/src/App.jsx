@@ -50,7 +50,7 @@ function App() {
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { type: "bot", text: "❌ Error contacting backend. Possibly timed out." },
+        { type: "bot", text: "❌ Error contacting backend." },
       ]);
     }
 
